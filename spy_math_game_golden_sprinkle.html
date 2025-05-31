@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🕵️ Spy Math Mission</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Courier New', monospace;
+      background-image: url('spy_game_bg.jpg');
+      background-size: cover;
+      background-position: center;
+      color: white;
+      text-align: center;
+    }
+    #timer {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-size: 36px;
+      font-weight: bold;
+    }
+    #prompt {
+      margin-top: 50px;
+      font-size: 28px;
+      font-weight: bold;
+      text-shadow: 2px 2px black;
+    }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(5, 100px);
+      gap: 15px;
+      justify-content: center;
+      margin-top: 30px;
+    }
+    .number-btn {
+      background-color: cyan;
+      color: black;
+      border: 2px solid black;
+      border-radius: 10px;
+      font-size: 20px;
+      font-weight: bold;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.4s ease;
+    }
+    .correct {
+      background-color: green !important;
+      color: white;
+      cursor: default;
+    }
+    .golden {
+      background-color: gold !important;
+      color: black;
+      box-shadow: 0 0 15px 5px gold;
+      cursor: default;
+    }
+    .wrong {
+      background-color: red !important;
+      color: white;
+    }
+    #nextBtn {
+      margin-top: 30px;
+      padding: 10px 20px;
+      font-size: 20px;
+      background-color: cyan;
+      border: 3px solid black;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+    #message {
+      margin-top: 15px;
+      font-size: 20px;
+      color: yellow;
+      text-shadow: 1px 1px black;
+    }
+    #inputSection {
+      display: none;
+      margin-top: 20px;
+    }
+    #secretInput {
+      font-size: 20px;
+      padding: 8px;
+    }
+    #winModal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.85);
+      color: white;
+      font-size: 24px;
+      padding-top: 100px;
+    }
+    #winModal button {
+      font-size: 20px;
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: limegreen;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #gameOver {
+      font-size: 30px;
+      margin-top: 20px;
+      color: red;
+      display: none;
+    }
+    #reminder {
+      margin-top: 10px;
+      font-size: 18px;
+      font-style: italic;
+      color: #FFD700;
+    }
+  </style>
+</head>
+<body>
+
+<div id="timer">15:00</div>
+<div id="prompt">Mission 1: Select numbers divisible by 2</div>
+<div id="grid"></div>
+<button id="nextBtn">Next Mission →</button>
+<div id="message"></div>
+<div id="reminder">🧠 Reminder: Two numbers will glow gold in different missions — remember them for the final code</div>
+
+<div id="inputSection">
+  <p>🕵️ Enter the final secret code (concatenate the two gold numbers, any order):</p>
+  <input type="text" id="secretInput" />
+  <button onclick="checkCode()">Submit</button>
+</div>
+
+<div id="winModal">
+  <h2>🎉 Mission Accomplished, Agent!</h2>
+  <p>You cracked the code and completed all spy tasks successfully.</p>
+  <button onclick="location.reload()">Play Again</button>
+</div>
+
+<div id="gameOver">💣 Time’s up! You’ve been compromised.</div>
+
+<script>
+const rounds = [
+  { prompt: "Select numbers divisible by 2", check: n => n % 2 === 0 },
+  { prompt: "Select numbers divisible by 3", check: n => n % 3 === 0 },
+  { prompt: "Select numbers divisible by 4", check: n => n % 4 === 0 },
+  { prompt: "Select numbers divisible by 5", check: n => n % 5 === 0 }
+];
+
+let round = 0;
+let correctNumbers = [];
+let selectedCorrect = new Set();
+let goldenNumbers = [];
+let goldenAssignments = [];
+let timer = 15 * 60;
+
+// Assign two distinct rounds for golden numbers and generate golden numbers matching those rounds
+(function assignGolden() {
+  let indices = [0,1,2,3];
+  let firstRound = indices.splice(Math.floor(Math.random()*indices.length), 1)[0];
+  let secondRound = indices[Math.floor(Math.random()*indices.length)];
+  goldenAssignments = [firstRound, secondRound];
+  goldenAssignments.forEach(r => {
+    let num;
+    do {
+      num = Math.floor(Math.random() * 300) + 1;
+    } while (!rounds[r].check(num));
+    goldenNumbers.push(num);
+  });
+})();
+
+function updateTimer() {
+  if (timer <= 0) {
+    document.getElementById("grid").innerHTML = "";
+    document.getElementById("nextBtn").style.display = "none";
+    document.getElementById("inputSection").style.display = "none";
+    document.getElementById("gameOver").style.display = "block";
+    return;
+  }
+  const min = Math.floor(timer / 60);
+  const sec = String(timer % 60).padStart(2, "0");
+  document.getElementById("timer").innerText = `${min}:${sec}`;
+  timer--;
+  setTimeout(updateTimer, 1000);
+}
+
+function loadRound() {
+  document.getElementById("message").innerText = "";
+  document.getElementById("prompt").innerText = `Mission ${round + 1}: ${rounds[round].prompt}`;
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  correctNumbers = [];
+  selectedCorrect.clear();
+
+  // Include golden number if assigned to this round
+  const idx = goldenAssignments.indexOf(round);
+  if (idx !== -1) {
+    correctNumbers.push(goldenNumbers[idx]);
+  }
+
+  while (correctNumbers.length < 6) {
+    let n = Math.floor(Math.random() * 300) + 1;
+    if (rounds[round].check(n) && !correctNumbers.includes(n)) correctNumbers.push(n);
+  }
+
+  let others = [];
+  while (others.length < 14) {
+    let n = Math.floor(Math.random() * 300) + 1;
+    if (!rounds[round].check(n) && !correctNumbers.includes(n) && !others.includes(n)) others.push(n);
+  }
+
+  const allNums = [...correctNumbers, ...others].sort(() => Math.random() - 0.5);
+  allNums.forEach(num => {
+    const btn = document.createElement("button");
+    btn.innerText = num;
+    btn.className = "number-btn";
+    btn.onclick = () => {
+      if (rounds[round].check(num)) {
+        if (!selectedCorrect.has(num)) {
+          selectedCorrect.add(num);
+          // Turn golden if it's one of the golden numbers
+          if (goldenNumbers.includes(num)) {
+            btn.classList.add("golden");
+          } else {
+            btn.classList.add("correct");
+          }
+          btn.disabled = true;
+        }
+      } else {
+        btn.classList.add("wrong");
+        setTimeout(() => btn.classList.remove("wrong"), 500);
+      }
+    };
+    grid.appendChild(btn);
+  });
+}
+
+document.getElementById("nextBtn").onclick = () => {
+  const allSelectedCorrect = correctNumbers.every(n => selectedCorrect.has(n));
+  if (!allSelectedCorrect) {
+    document.getElementById("message").innerText = "Not yet, Agent. More targets remain!";
+    return;
+  }
+
+  if (round < rounds.length - 1) {
+    round++;
+    loadRound();
+  } else {
+    document.getElementById("grid").innerHTML = "";
+    document.getElementById("prompt").innerText = "🎯 Final Mission: Enter the secret code from the golden numbers";
+    document.getElementById("nextBtn").style.display = "none";
+    document.getElementById("inputSection").style.display = "block";
+  }
+};
+
+function checkCode() {
+  const input = document.getElementById("secretInput").value;
+  const code1 = "" + goldenNumbers[0] + goldenNumbers[1];
+  const code2 = "" + goldenNumbers[1] + goldenNumbers[0];
+  if (input === code1 || input === code2) {
+    document.getElementById("inputSection").style.display = "none";
+    document.getElementById("winModal").style.display = "block";
+  } else {
+    document.getElementById("message").innerText = "Wrong code. Try again.";
+  }
+}
+
+loadRound();
+updateTimer();
+</script>
+
+</body>
+</html>
